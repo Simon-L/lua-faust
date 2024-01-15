@@ -1,0 +1,43 @@
+#! /bin/bash -e
+
+. faustpath
+. usage.sh
+
+FILES=""
+FAUSTOPTS=""
+FORMAT=""
+
+LUA_SCRIPT="$(faust -archdir)/render_template.lua"
+echo $LUA_SCRIPT
+if [[ ! -f $LUA_SCRIPT ]]; then
+    echo "Can't find lua script in $(faust -archdir). Aborted."
+fi
+
+# Analyze command line
+for p in $@; do
+    if [ $p = "-help" ] || [ $p = "-h" ]; then
+        usage faust-tpl "[options] <file.dsp>" to process templated dsp file.dsp, all other options are passed to faust
+        exit
+    fi
+    if [[ -f "$p" ]] && [ ${p: -4} == ".dsp" ]; then
+        FILES="$FILES $p"
+    else
+        FAUSTOPTS="$FAUSTOPTS $p"
+    fi
+done
+
+OUTFILES=""
+for f in $FILES; do
+    TEMPFAUSTFILE="$(mktemp --suffix=.dsp)"
+    echo "Processing $f into $TEMPFAUSTFILE"
+    lua5.4 $LUA_SCRIPT -o $TEMPFAUSTFILE $f
+    OUTFILES="$OUTFILES $TEMPFAUSTFILE"
+done
+
+faust $FAUSTOPTS $OUTFILES
+
+for f in $OUTFILES; do
+    echo "Deleting $f"
+    rm $f
+done
+
